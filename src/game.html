@@ -1,0 +1,937 @@
+<title>Mochi the Cat</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one full-screen room, Mochi centred on a rug, five big toy buttons along the bottom.
+   Deliberately single-theme (a cosy daytime room that dims for night mode). */
+:root {
+  --wall: #BFE3DF;
+  --wall-deep: #A6D5D0;
+  --floor: #E7C397;
+  --floor-line: #D7AE7E;
+  --rug: #F29A8E;
+  --ink: #5A3A2A;
+  --fur: #F4AE63;
+  --cream: #FFF1DC;
+  --btn: #FFFFFF;
+  --night: rgba(22, 26, 70, 0.62);
+  --font: "Baloo 2", "Chalkboard SE", "Comic Sans MS", system-ui, sans-serif;
+  color-scheme: light;
+}
+html, body { height: 100%; margin: 0; overflow: hidden; background: var(--wall); }
+body {
+  font-family: var(--font);
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+#app { position: fixed; inset: 0; overflow: hidden; }
+
+/* ---------- Room ---------- */
+.wall {
+  position: absolute; inset: 0 0 26% 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,.18) 0 18px, transparent 19px) 0 0 / 120px 120px,
+    linear-gradient(var(--wall), var(--wall-deep));
+}
+.floor {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 26%;
+  background: repeating-linear-gradient(90deg, var(--floor) 0 118px, var(--floor-line) 118px 121px);
+  border-top: 10px solid #C99A6B;
+}
+.window {
+  position: absolute; top: 9%; left: 7%;
+  width: min(22vw, 210px); aspect-ratio: 1 / 1.15;
+  border: 12px solid #FFFFFF; border-radius: 18px;
+  background: linear-gradient(#8FD3FF, #D6F1FF);
+  box-shadow: 0 6px 0 rgba(0,0,0,.08);
+  overflow: hidden;
+}
+.window::before, .window::after { content: ""; position: absolute; background: #FFFFFF; }
+.window::before { left: 50%; top: 0; bottom: 0; width: 8px; transform: translateX(-50%); }
+.window::after { top: 50%; left: 0; right: 0; height: 8px; transform: translateY(-50%); }
+.sun, .moon {
+  position: absolute; top: 14%; right: 14%; width: 30%; aspect-ratio: 1; border-radius: 50%;
+  transition: opacity .8s, transform .8s;
+}
+.sun { background: #FFD54A; box-shadow: 0 0 24px #FFE58A; }
+.moon { background: #FFF7D1; box-shadow: inset -10px -4px 0 #E9DDA0; opacity: 0; transform: translateY(30px); }
+.cloud {
+  position: absolute; left: 10%; top: 58%; width: 45%; height: 14%;
+  background: #FFFFFF; border-radius: 99px; opacity: .95;
+  animation: drift 18s ease-in-out infinite alternate;
+}
+@keyframes drift { to { transform: translateX(40%); } }
+.frame {
+  position: absolute; top: 12%; right: 8%;
+  width: min(14vw, 130px); aspect-ratio: 1;
+  background: #FFE9A8; border: 10px solid #C98A5A; border-radius: 10px;
+  display: grid; place-items: center; font-size: min(7vw, 64px);
+  box-shadow: 0 6px 0 rgba(0,0,0,.08);
+}
+.rug {
+  position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%);
+  width: min(70vw, 620px); height: min(11vh, 110px);
+  border-radius: 50%; background: var(--rug);
+  box-shadow: inset 0 0 0 12px #F7B8AE, inset 0 0 0 20px var(--rug), inset 0 0 0 24px #F7B8AE;
+}
+.night-shade {
+  position: absolute; inset: 0; background: var(--night);
+  opacity: 0; pointer-events: none; transition: opacity 1s;
+}
+body.night .night-shade { opacity: 1; }
+body.night .sun { opacity: 0; transform: translateY(30px); }
+body.night .moon { opacity: 1; transform: none; }
+body.night .window { background: linear-gradient(#1D2457, #3A3F7A); }
+body.night .cloud { opacity: .25; }
+
+/* ---------- Cat ---------- */
+#stage {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(110px, 15vh, 150px));
+}
+#cat {
+  height: min(71vh, 118vw); max-height: 760px; width: auto; max-width: 96vw;
+  overflow: visible; touch-action: none; cursor: pointer;
+}
+#cat g { transform-box: view-box; }
+#all { transform-origin: 200px 515px; }
+#bodyG { transform-origin: 200px 500px; animation: breathe 3.2s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.012, 0.988); } }
+#head { transform-origin: 200px 318px; transition: transform .35s cubic-bezier(.3,1.5,.5,1); }
+#tail { transform-origin: 282px 452px; animation: swish 3.4s ease-in-out infinite; }
+@keyframes swish { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(7deg); } }
+#earL { transform-origin: 130px 150px; transition: transform .25s; }
+#earR { transform-origin: 270px 150px; transition: transform .25s; }
+#armR { transform-origin: 248px 360px; transition: transform .35s cubic-bezier(.3,1.4,.5,1); }
+#armL { transform-origin: 152px 360px; transition: transform .35s cubic-bezier(.3,1.4,.5,1); }
+#mouthOpen { transform-origin: 0 0; transform-box: view-box; }
+
+#eyesHappy, #eyesClosed, #eyesDizzy { display: none; }
+#cat[data-expr="happy"] #eyesNormal, #cat[data-expr="closed"] #eyesNormal, #cat[data-expr="dizzy"] #eyesNormal { display: none; }
+#cat[data-expr="happy"] #eyesHappy { display: inline; }
+#cat[data-expr="closed"] #eyesClosed { display: inline; }
+#cat[data-expr="dizzy"] #eyesDizzy { display: inline; }
+#eyesDizzy { transform-box: fill-box; }
+#cat[data-expr="dizzy"] .spiral { animation: spin .7s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.eye { transform-box: fill-box !important; transform-origin: center; transition: transform .08s; }
+#cat.blink .eye { transform: scaleY(.08); }
+#cat[data-expr="surprised"] .eye { transform: scale(1.16); }
+.blush { transition: opacity .3s; opacity: .55; }
+#cat[data-expr="happy"] .blush { opacity: .95; }
+
+/* poses */
+#cat.listen #head { transform: rotate(9deg); }
+#cat.listen #armR { transform: rotate(-150deg); }
+#cat.listen #earR { transform: rotate(10deg) scale(1.12); }
+#cat.listen #earL { transform: scale(1.08); }
+#cat.talking #head { animation: talkBob .32s ease-in-out infinite alternate; }
+@keyframes talkBob { from { transform: rotate(-2deg); } to { transform: rotate(2deg) translateY(-2px); } }
+#cat.dizzy #head { animation: wobble .5s ease-in-out infinite; }
+@keyframes wobble { 0%,100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+#cat.jiggle #bodyG { animation: jiggle .18s ease-in-out 6; }
+@keyframes jiggle { 50% { transform: scale(1.06, .94); } }
+#cat.jiggle #head { transform: rotate(-4deg) translateY(4px); }
+#cat.hop #all { animation: hop .55s cubic-bezier(.3,.7,.4,1) 1; }
+@keyframes hop { 0%,100% { transform: none; } 15% { transform: scale(1.06,.92); } 50% { transform: translateY(-60px) scale(.96,1.05); } 85% { transform: scale(1.05,.95); } }
+#cat.jump #all { animation: jump .7s cubic-bezier(.3,.7,.4,1) 1; }
+@keyframes jump { 0%,100% { transform: none; } 45% { transform: translateY(-110px) rotate(-4deg); } 80% { transform: scale(1.06,.94); } }
+#cat.jump #tail { animation: none; transform: rotate(-30deg) scale(1.12); }
+#cat.jump #armL { transform: rotate(40deg); }
+#cat.jump #armR { transform: rotate(-40deg); }
+#cat.sneeze #head { animation: sneeze .9s ease-in 1; }
+@keyframes sneeze { 0% { transform: none; } 55% { transform: rotate(-6deg) translateY(-10px); } 70% { transform: rotate(4deg) translateY(14px) scale(1.04); } 100% { transform: none; } }
+#cat.sleeping #head { transform: translateY(16px) rotate(-7deg); }
+#cat.sleeping #bodyG { animation-duration: 4.6s; }
+#cat.sleeping #tail { animation-duration: 7s; }
+#cat.sleeping #earL, #cat.sleeping #earR { transform: rotate(-6deg) scale(.95); }
+#cat.stretch #all { animation: stretch 1.2s ease-in-out 1; }
+@keyframes stretch { 40% { transform: scale(.96, 1.08); } }
+#cat.stretch #armL { transform: rotate(150deg); }
+#cat.stretch #armR { transform: rotate(-150deg); }
+#cat.dance #all { animation: sway .9s ease-in-out infinite; }
+@keyframes sway { 0%,100% { transform: rotate(-5deg); } 25% { transform: translateY(-16px); } 50% { transform: rotate(5deg); } 75% { transform: translateY(-16px); } }
+#cat.dance #armL { animation: waveL .45s ease-in-out infinite alternate; }
+#cat.dance #armR { animation: waveR .45s ease-in-out infinite alternate; }
+@keyframes waveL { from { transform: rotate(60deg); } to { transform: rotate(130deg); } }
+@keyframes waveR { from { transform: rotate(-130deg); } to { transform: rotate(-60deg); } }
+#cat.eating #head { transform: rotate(-3deg) translateY(4px); }
+#cat.yay #armL { transform: rotate(130deg); }
+#cat.yay #armR { transform: rotate(-130deg); }
+#cat.twitchL #earL { animation: twitch .35s ease-in-out 2; }
+#cat.twitchR #earR { animation: twitch .35s ease-in-out 2; }
+@keyframes twitch { 50% { transform: rotate(-16deg) scale(.9); } }
+#cat.look #head { transform: rotate(-6deg); }
+
+/* ---------- Effects ---------- */
+#fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.fx {
+  position: absolute; left: 0; top: 0; line-height: 1;
+  font-size: clamp(30px, 5vw, 52px);
+  will-change: transform, opacity;
+}
+.float { animation: floatUp 1.6s ease-out forwards; }
+@keyframes floatUp {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  15% { opacity: 1; transform: translate(-50%, -90%) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -320%) scale(1.15); }
+}
+.zz { font-weight: 800; color: #E9ECFF; text-shadow: 0 2px 0 #3A3F7A; animation: zz 2.6s ease-out forwards; }
+@keyframes zz {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(60px, -180px) scale(1.4) rotate(12deg); }
+}
+.crumb { width: 12px; height: 12px; border-radius: 50%; animation: crumb .8s ease-in forwards; }
+@keyframes crumb { to { opacity: 0; transform: translate(var(--dx), 110px) scale(.6); } }
+.flyer { position: absolute; left: 0; top: 0; font-size: clamp(54px, 8vw, 80px); line-height: 1; pointer-events: none; }
+
+/* ---------- Toy buttons ---------- */
+#toys {
+  position: absolute; left: 0; right: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  display: flex; justify-content: center; gap: clamp(10px, 2.6vw, 26px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.toy {
+  width: clamp(66px, 11vw, 96px); aspect-ratio: 1; border-radius: 50%;
+  border: 6px solid var(--ring, #F4AE63); background: var(--btn);
+  font-size: clamp(32px, 5.4vw, 50px); line-height: 1;
+  display: grid; place-items: center; padding: 0;
+  box-shadow: 0 6px 0 rgba(90,58,42,.25);
+  touch-action: manipulation; cursor: pointer;
+  transition: transform .12s;
+}
+.toy:active, .toy.pressed { transform: translateY(4px) scale(.94); box-shadow: 0 2px 0 rgba(90,58,42,.25); }
+.toy:focus-visible { outline: 4px solid #3E7BD6; outline-offset: 3px; }
+.toy.on { background: #FFF3C4; }
+
+/* ---------- Ear (microphone) badge ---------- */
+#ear {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: max(16px, env(safe-area-inset-right, 0px));
+  width: 54px; height: 54px; border-radius: 50%;
+  background: rgba(255,255,255,.8); border: 0; padding: 0;
+  font-size: 28px; display: grid; place-items: center;
+  box-shadow: 0 3px 0 rgba(90,58,42,.18);
+}
+#ear[data-state="off"] { filter: grayscale(1); opacity: .55; }
+#ear[data-state="hearing"] { background: #FFE07A; animation: pulse .6s ease-in-out infinite alternate; }
+@keyframes pulse { to { transform: scale(1.12); } }
+
+/* ---------- Start screen ---------- */
+#start {
+  position: absolute; inset: 0;
+  display: grid; place-items: center; align-content: center; gap: 18px;
+  background: rgba(22, 26, 70, .35);
+  z-index: 5;
+}
+#startBtn {
+  width: clamp(150px, 26vw, 220px); aspect-ratio: 1; border-radius: 50%;
+  border: 10px solid #FFFFFF; background: #F4AE63;
+  box-shadow: 0 10px 0 rgba(0,0,0,.18);
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+  animation: beat 1.2s ease-in-out infinite;
+}
+#startBtn svg { width: 46%; height: 46%; }
+@keyframes beat { 50% { transform: scale(1.07); } }
+#start p {
+  margin: 0; color: #FFFFFF; font-size: clamp(22px, 3.4vw, 32px); font-weight: 700;
+  text-shadow: 0 2px 0 rgba(0,0,0,.25); text-align: center;
+}
+#start[hidden] { display: none !important; }
+
+@media (orientation: portrait) {
+  .window { top: 7%; }
+  .frame { top: 9%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cloud { animation: none; }
+}
+</style>
+
+<div id="app">
+  <div class="wall"></div>
+  <div class="window" aria-hidden="true"><div class="sun"></div><div class="moon"></div><div class="cloud"></div></div>
+  <div class="frame" aria-hidden="true">🐟</div>
+  <div class="floor"></div>
+  <div class="rug"></div>
+
+  <div id="stage">
+    <svg id="cat" viewBox="0 0 400 520" data-expr="closed" class="sleeping" role="img" aria-label="Mochi the cat">
+      <defs>
+        <radialGradient id="furG" cx="0.42" cy="0.32" r="0.75">
+          <stop offset="0" stop-color="#FFCB8C"/>
+          <stop offset="1" stop-color="#EFA458"/>
+        </radialGradient>
+      </defs>
+      <g id="all">
+        <g id="tail" data-zone="tail">
+          <path d="M282 452 C345 452 374 404 354 356 C342 326 352 302 374 292" fill="none" stroke="#5A3A2A" stroke-width="36" stroke-linecap="round"/>
+          <path d="M282 452 C345 452 374 404 354 356 C342 326 352 302 374 292" fill="none" stroke="#F4AE63" stroke-width="25" stroke-linecap="round"/>
+          <path d="M282 452 C345 452 374 404 354 356 C342 326 352 302 374 292" fill="none" stroke="#E08E45" stroke-width="25" stroke-dasharray="12 26" stroke-dashoffset="-30"/>
+          <!-- bigger invisible hit area for little fingers -->
+          <path d="M282 452 C345 452 374 404 354 356 C342 326 352 302 374 292" fill="none" stroke="transparent" stroke-width="70" stroke-linecap="round"/>
+        </g>
+        <g id="bodyG">
+          <g data-zone="body">
+            <ellipse cx="200" cy="405" rx="108" ry="96" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5"/>
+            <path d="M102 380 q16 4 26 16 M98 410 q16 2 26 14 M298 380 q-16 4 -26 16 M302 410 q-16 2 -26 14" stroke="#E08E45" stroke-width="7" stroke-linecap="round" fill="none"/>
+          </g>
+          <ellipse data-zone="belly" cx="200" cy="420" rx="66" ry="68" fill="#FFF1DC"/>
+          <g id="feet" data-zone="foot">
+            <ellipse cx="150" cy="492" rx="42" ry="23" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5"/>
+            <ellipse cx="250" cy="492" rx="42" ry="23" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5"/>
+            <path d="M140 482 v12 M156 482 v12 M244 482 v12 M260 482 v12" stroke="#5A3A2A" stroke-width="4" stroke-linecap="round"/>
+          </g>
+          <g id="armL" data-zone="body">
+            <path d="M138 352 C118 380 116 430 132 458 C142 474 170 474 174 456 C178 420 172 384 162 356 Z" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5"/>
+            <path d="M146 458 v9 M159 458 v9" stroke="#5A3A2A" stroke-width="4" stroke-linecap="round"/>
+          </g>
+          <path d="M122 314 Q200 356 278 314" stroke="#3E7BD6" stroke-width="17" stroke-linecap="round" fill="none"/>
+          <g>
+            <circle cx="200" cy="343" r="14" fill="#F5C542" stroke="#5A3A2A" stroke-width="4"/>
+            <path d="M193 347 h14" stroke="#5A3A2A" stroke-width="3" stroke-linecap="round"/>
+          </g>
+        </g>
+        <g id="head" data-zone="head">
+          <g id="earL" data-zone="ear">
+            <path d="M92 168 C78 110 82 66 104 46 C132 58 160 90 176 118 Z" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5" stroke-linejoin="round"/>
+            <path d="M106 140 C98 108 100 84 110 70 C128 82 144 100 152 118 Z" fill="#F7A1A8"/>
+          </g>
+          <g id="earR" data-zone="ear">
+            <path d="M308 168 C322 110 318 66 296 46 C268 58 240 90 224 118 Z" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5" stroke-linejoin="round"/>
+            <path d="M294 140 C302 108 300 84 290 70 C272 82 256 100 248 118 Z" fill="#F7A1A8"/>
+          </g>
+          <path d="M90 212 L46 230 L84 250 L52 272 L104 270 Z" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M310 212 L354 230 L316 250 L348 272 L296 270 Z" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5" stroke-linejoin="round"/>
+          <ellipse cx="200" cy="208" rx="132" ry="112" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5"/>
+          <path d="M200 100 v26 M178 104 l6 22 M222 104 l-6 22" stroke="#E08E45" stroke-width="8" stroke-linecap="round"/>
+          <ellipse class="blush" cx="108" cy="252" rx="22" ry="13" fill="#F49AA0"/>
+          <ellipse class="blush" cx="292" cy="252" rx="22" ry="13" fill="#F49AA0"/>
+
+          <g id="eyesNormal">
+            <g class="eye">
+              <ellipse cx="150" cy="198" rx="34" ry="38" fill="#FFFFFF" stroke="#5A3A2A" stroke-width="4"/>
+              <g class="pupil">
+                <circle cx="150" cy="203" r="25" fill="#3FA79C"/>
+                <circle cx="150" cy="203" r="15" fill="#1E1A2B"/>
+                <circle cx="141" cy="193" r="7.5" fill="#FFFFFF"/>
+                <circle cx="158" cy="211" r="3.5" fill="#FFFFFF"/>
+              </g>
+            </g>
+            <g class="eye">
+              <ellipse cx="250" cy="198" rx="34" ry="38" fill="#FFFFFF" stroke="#5A3A2A" stroke-width="4"/>
+              <g class="pupil">
+                <circle cx="250" cy="203" r="25" fill="#3FA79C"/>
+                <circle cx="250" cy="203" r="15" fill="#1E1A2B"/>
+                <circle cx="241" cy="193" r="7.5" fill="#FFFFFF"/>
+                <circle cx="258" cy="211" r="3.5" fill="#FFFFFF"/>
+              </g>
+            </g>
+          </g>
+          <g id="eyesHappy" fill="none" stroke="#5A3A2A" stroke-width="8" stroke-linecap="round">
+            <path d="M118 208 Q150 168 182 208"/>
+            <path d="M218 208 Q250 168 282 208"/>
+          </g>
+          <g id="eyesClosed" fill="none" stroke="#5A3A2A" stroke-width="7" stroke-linecap="round">
+            <path d="M118 200 Q150 224 182 200"/>
+            <path d="M218 200 Q250 224 282 200"/>
+          </g>
+          <g id="eyesDizzy" fill="none" stroke="#5A3A2A" stroke-width="5" stroke-linecap="round"></g>
+
+          <g data-zone="nose">
+            <ellipse cx="178" cy="252" rx="30" ry="22" fill="#FFF1DC"/>
+            <ellipse cx="222" cy="252" rx="30" ry="22" fill="#FFF1DC"/>
+            <ellipse cx="200" cy="274" rx="22" ry="14" fill="#FFF1DC"/>
+            <g stroke="#5A3A2A" stroke-width="3" stroke-linecap="round" opacity=".75">
+              <path d="M128 246 L64 236 M128 258 L62 262 M272 246 L336 236 M272 258 L338 262"/>
+            </g>
+            <path d="M187 233 Q200 226 213 233 Q207 248 200 250 Q193 248 187 233 Z" fill="#F7A1A8" stroke="#5A3A2A" stroke-width="3" stroke-linejoin="round"/>
+            <path id="mouthClosed" d="M200 250 L200 258 M178 257 Q189 271 200 258 Q211 271 222 257" fill="none" stroke="#5A3A2A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <g id="mouthOpen" style="display:none">
+              <path d="M200 250 L200 256" stroke="#5A3A2A" stroke-width="4.5" stroke-linecap="round"/>
+              <path d="M178 257 Q200 252 222 257 Q224 290 200 292 Q176 290 178 257 Z" fill="#7A2638" stroke="#5A3A2A" stroke-width="4" stroke-linejoin="round"/>
+              <ellipse cx="200" cy="283" rx="13" ry="7" fill="#F48A98"/>
+            </g>
+          </g>
+        </g>
+        <g id="armR" data-zone="body">
+          <path d="M262 352 C282 380 284 430 268 458 C258 474 230 474 226 456 C222 420 228 384 238 356 Z" fill="url(#furG)" stroke="#5A3A2A" stroke-width="5"/>
+          <path d="M254 458 v9 M241 458 v9" stroke="#5A3A2A" stroke-width="4" stroke-linecap="round"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <div id="fx"></div>
+  <div class="night-shade"></div>
+
+  <div id="toys" role="toolbar" aria-label="Toys">
+    <button class="toy" id="tMilk" style="--ring:#7EC8F2" aria-label="Milk">🥛</button>
+    <button class="toy" id="tFish" style="--ring:#F4AE63" aria-label="Fish">🐟</button>
+    <button class="toy" id="tCake" style="--ring:#F49AA0" aria-label="Cake">🧁</button>
+    <button class="toy" id="tMusic" style="--ring:#9C8CF0" aria-label="Music">🎵</button>
+    <button class="toy" id="tSleep" style="--ring:#3E4A8C" aria-label="Bedtime">🌙</button>
+  </div>
+
+  <button id="ear" data-state="off" aria-label="Microphone">👂</button>
+
+  <div id="start">
+    <button id="startBtn" aria-label="Wake Mochi">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M30 18 L84 50 L30 82 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="10" stroke-linejoin="round"/></svg>
+    </button>
+    <p>Tap to wake Mochi</p>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = (id) => document.getElementById(id);
+const cat = $("cat"), fx = $("fx");
+const mouthOpenEl = $("mouthOpen"), mouthClosedEl = $("mouthClosed");
+const pupils = [...cat.querySelectorAll(".pupil")];
+
+/* ================= Audio engine ================= */
+let ctx = null, master = null;
+function initAudio() {
+  if (ctx) { if (ctx.state !== "running") ctx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try { if (navigator.audioSession) navigator.audioSession.type = "play-and-record"; } catch (e) {}
+  ctx = new AC();
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.ratio.value = 4;
+  master = ctx.createGain(); master.gain.value = 0.9;
+  master.connect(comp); comp.connect(ctx.destination);
+  // iOS unlock: play one silent sample inside the tap.
+  const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource();
+  s.buffer = b; s.connect(ctx.destination); s.start(0);
+  ctx.resume();
+}
+let noiseBuf = null;
+function noise() {
+  if (!noiseBuf) {
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const n = ctx.createBufferSource(); n.buffer = noiseBuf; n.loop = true; return n;
+}
+function gainEnv(t, a, peak, hold, rel) {
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + a);
+  g.gain.setValueAtTime(peak, t + a + hold);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + a + hold + rel);
+  return g;
+}
+const SFX = {
+  meow(p = 1, len = 1) {
+    if (!ctx) return;
+    const t = ctx.currentTime, d = 0.62 * len;
+    const o = ctx.createOscillator(); o.type = "sawtooth";
+    o.frequency.setValueAtTime(430 * p, t);
+    o.frequency.linearRampToValueAtTime(780 * p, t + d * 0.3);
+    o.frequency.linearRampToValueAtTime(520 * p, t + d);
+    const vib = ctx.createOscillator(), vg = ctx.createGain();
+    vib.frequency.value = 7; vg.gain.value = 14 * p; vib.connect(vg); vg.connect(o.frequency);
+    const f1 = ctx.createBiquadFilter(); f1.type = "bandpass"; f1.Q.value = 4;
+    f1.frequency.setValueAtTime(650, t); f1.frequency.linearRampToValueAtTime(1500, t + d * 0.35); f1.frequency.linearRampToValueAtTime(800, t + d);
+    const f2 = ctx.createBiquadFilter(); f2.type = "bandpass"; f2.Q.value = 6; f2.frequency.value = 2600;
+    const g = gainEnv(t, 0.05, 0.9, d * 0.55, d * 0.4);
+    o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(master);
+    o.start(t); vib.start(t); o.stop(t + d + 0.1); vib.stop(t + d + 0.1);
+  },
+  chirp(f0, f1, dur, type = "sine", vol = 0.35, at = 0) {
+    if (!ctx) return;
+    const t = ctx.currentTime + at;
+    const o = ctx.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = gainEnv(t, 0.01, vol, dur * 0.4, dur * 0.6);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+  },
+  burst(dur, freq, q, vol = 0.4, at = 0) {
+    if (!ctx) return;
+    const t = ctx.currentTime + at, n = noise();
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    const g = gainEnv(t, 0.005, vol, dur * 0.3, dur * 0.7);
+    n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t + dur + 0.05);
+  },
+  giggle() { for (let i = 0; i < 6; i++) { const f = 900 + Math.random() * 400 + (i % 2) * 200; this.chirp(f, f * 1.35, 0.08, "triangle", 0.3, i * 0.11); } },
+  bonk() { this.chirp(700, 140, 0.25, "triangle", 0.5); this.chirp(1600, 1900, 0.5, "sine", 0.12, 0.2); this.chirp(1900, 1600, 0.5, "sine", 0.12, 0.6); },
+  yowl() { this.meow(1.5, 0.8); this.chirp(1200, 1800, 0.15, "square", 0.08); },
+  boing() { if (!ctx) return; const t = ctx.currentTime; const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(620, t + 0.25); o.frequency.exponentialRampToValueAtTime(300, t + 0.5); const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 18; lg.gain.value = 40; l.connect(lg); lg.connect(o.frequency); const g = gainEnv(t, 0.01, 0.45, 0.2, 0.3); o.connect(g); g.connect(master); o.start(t); l.start(t); o.stop(t + 0.6); l.stop(t + 0.6); },
+  pop() { this.chirp(500, 1000, 0.09, "sine", 0.3); },
+  munch(at = 0) { this.burst(0.09, 1400, 1.2, 0.45, at); this.burst(0.07, 900, 1.5, 0.35, at + 0.1); },
+  gulp(at = 0) { this.chirp(300, 900, 0.12, "sine", 0.4, at); },
+  yum() { if (!ctx) return; const t = ctx.currentTime; const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.setValueAtTime(260, t); o.frequency.linearRampToValueAtTime(340, t + 0.3); o.frequency.linearRampToValueAtTime(250, t + 0.7); const v = ctx.createOscillator(), vg = ctx.createGain(); v.frequency.value = 6; vg.gain.value = 10; v.connect(vg); vg.connect(o.frequency); const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 900; const g = gainEnv(t, 0.06, 0.6, 0.45, 0.25); o.connect(f); f.connect(g); g.connect(master); o.start(t); v.start(t); o.stop(t + 0.85); v.stop(t + 0.85); },
+  sneeze() { this.chirp(500, 900, 0.5, "sawtooth", 0.08); this.burst(0.35, 2500, 0.8, 0.7, 0.6); this.chirp(900, 500, 0.25, "triangle", 0.2, 0.6); },
+  yawn() { if (!ctx) return; const t = ctx.currentTime; const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(520, t); o.frequency.linearRampToValueAtTime(600, t + 0.3); o.frequency.exponentialRampToValueAtTime(240, t + 1.3); const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.setValueAtTime(2200, t); f.frequency.linearRampToValueAtTime(700, t + 1.3); const g = gainEnv(t, 0.15, 0.4, 0.6, 0.6); o.connect(f); f.connect(g); g.connect(master); o.start(t); o.stop(t + 1.5); },
+  snore() { if (!ctx) return; const t = ctx.currentTime, n = noise(); const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 320; f.Q.value = 2; const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 1.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6); n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t + 1.7); this.chirp(900, 1300, 0.7, "sine", 0.05, 1.8); },
+  plink(f, at = 0) { this.chirp(f, f, 0.18, "sine", 0.18, at); }
+};
+let purrNodes = null;
+function startPurr() {
+  if (!ctx || purrNodes) return;
+  const t = ctx.currentTime, n = noise();
+  const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 260;
+  const am = ctx.createGain(); am.gain.value = 0;
+  const lfo = ctx.createOscillator(); lfo.type = "triangle"; lfo.frequency.value = 26;
+  const lg = ctx.createGain(); lg.gain.value = 0.8; lfo.connect(lg); lg.connect(am.gain);
+  const out = ctx.createGain(); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(1.4, t + 0.3);
+  n.connect(f); f.connect(am); am.connect(out); out.connect(master);
+  n.start(t); lfo.start(t);
+  purrNodes = { n, lfo, out };
+}
+function stopPurr() {
+  if (!purrNodes) return;
+  const { n, lfo, out } = purrNodes, t = ctx.currentTime;
+  out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value || 0.5, t); out.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+  n.stop(t + 0.4); lfo.stop(t + 0.4); purrNodes = null;
+}
+
+/* music: an original little tune, scheduled on the audio clock */
+const NOTE = (n) => { const m = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }; const o = +n.slice(-1); return 440 * Math.pow(2, (m[n[0]] + (o + 1) * 12 - 69) / 12); };
+const MELODY = "C5 2,E5 1,G5 1,A5 2,G5 2,E5 2,C5 2,D5 4,E5 2,F5 1,G5 1,A5 2,C6 2,B5 2,G5 2,C6 4,A5 2,G5 1,E5 1,F5 2,D5 2,E5 2,C5 2,D5 2,G4 2,C5 2,E5 2,G5 2,E5 2,C5 4,R 4";
+const BASS = ["C3", "G2", "F2", "G2", "F2", "G2", "C3", "C3"];
+let music = null;
+function playMusic(onEnd) {
+  const step = 60 / 132 / 2, t0 = ctx.currentTime + 0.08;
+  const bus = ctx.createGain(); bus.gain.value = 0.9; bus.connect(master);
+  const nodes = [];
+  const tone = (freq, t, dur, type, vol) => {
+    const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.02); nodes.push(o);
+  };
+  let i = 0;
+  for (const tok of MELODY.split(",")) {
+    const [n, len] = tok.trim().split(" "); const L = +len;
+    if (n !== "R") { tone(NOTE(n), t0 + i * step, L * step * 0.95, "triangle", 0.32); tone(NOTE(n) * 2, t0 + i * step, L * step * 0.5, "square", 0.03); }
+    i += L;
+  }
+  const total = i * step;
+  BASS.forEach((b, bar) => {
+    for (let k = 0; k < 4; k++) {
+      const f = NOTE(b) * (k % 2 ? 1.5 : 1);
+      tone(f, t0 + (bar * 8 + k * 2) * step, step * 1.6, "sine", 0.35);
+    }
+  });
+  for (let k = 0; k < i; k += 2) {
+    const n = noise(), f = ctx.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 7000;
+    const t = t0 + (k + 1) * step, g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    n.connect(f); f.connect(g); g.connect(bus); n.start(t); n.stop(t + 0.08); nodes.push(n);
+  }
+  const timer = setTimeout(() => { music = null; onEnd(); }, total * 1000 + 300);
+  music = { bus, nodes, timer };
+}
+function stopMusic() {
+  if (!music) return;
+  clearTimeout(music.timer);
+  const t = ctx.currentTime;
+  music.bus.gain.setValueAtTime(music.bus.gain.value, t); music.bus.gain.linearRampToValueAtTime(0, t + 0.2);
+  music.nodes.forEach((n) => { try { n.stop(t + 0.25); } catch (e) {} });
+  music = null;
+}
+
+/* ================= Cat state ================= */
+let mode = "asleep";          // idle | react | pet | eat | listen | talk | sleep | dance | asleep
+let timers = [];
+let mouth = 0, mouthTarget = 0, talkAnalyser = null, talkSource = null;
+let lastInput = performance.now();
+let dizzyStars = null, zzTimer = null, snoreTimer = null, noteTimer = null;
+const POSES = ["listen", "talking", "dizzy", "jiggle", "hop", "jump", "sneeze", "sleeping", "stretch", "dance", "eating", "yay", "twitchL", "twitchR", "look"];
+
+const later = (ms, fn) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
+function setExpr(e) { cat.dataset.expr = e; }
+function pose(...p) { cat.classList.add(...p); }
+function clearAll() {
+  timers.forEach(clearTimeout); timers = [];
+  cat.classList.remove(...POSES);
+  setExpr("normal");
+  mouthTarget = 0;
+  stopPurr();
+  stopTalk();
+  if (music) { stopMusic(); $("tMusic").classList.remove("on"); }
+  clearInterval(zzTimer); clearInterval(snoreTimer); clearInterval(noteTimer);
+  zzTimer = snoreTimer = noteTimer = null;
+  dizzyStars && dizzyStars.forEach((s) => s.remove()); dizzyStars = null;
+  document.body.classList.remove("night"); $("tSleep").classList.remove("on"); $("tSleep").textContent = "🌙";
+}
+function toIdle() { clearAll(); mode = "idle"; deafUntil = performance.now() + 350; }
+function touch() { lastInput = performance.now(); }
+
+/* map SVG coordinates to screen pixels */
+function pt(x, y) {
+  const m = cat.getScreenCTM(); if (!m) return { x: 0, y: 0 };
+  const p = cat.createSVGPoint(); p.x = x; p.y = y;
+  const q = p.matrixTransform(m); const r = fx.getBoundingClientRect();
+  return { x: q.x - r.left, y: q.y - r.top };
+}
+function spawn(html, x, y, cls = "float", life = 1700, extra = {}) {
+  const el = document.createElement("div");
+  el.className = "fx " + cls; el.textContent = html;
+  el.style.left = x + "px"; el.style.top = y + "px";
+  for (const k in extra) el.style.setProperty(k, extra[k]);
+  fx.appendChild(el); setTimeout(() => el.remove(), life);
+  return el;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+function hearts(n = 3) {
+  for (let i = 0; i < n; i++) setTimeout(() => {
+    const p = pt(rnd(120, 280), rnd(110, 170));
+    spawn(["💖", "💕", "❤️"][i % 3], p.x, p.y, "float", 1700, { "--dx": rnd(-60, 60) + "px" });
+  }, i * 180);
+}
+
+/* dizzy spiral eyes */
+(function buildSpirals() {
+  const g = $("eyesDizzy");
+  [150, 250].forEach((cx) => {
+    let d = ""; const cy = 200;
+    for (let a = 0; a <= Math.PI * 5; a += 0.2) { const r = 2 + a * 1.9; d += (d ? "L" : "M") + (cx + Math.cos(a) * r).toFixed(1) + " " + (cy + Math.sin(a) * r).toFixed(1); }
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); p.setAttribute("class", "spiral");
+    g.appendChild(p);
+  });
+})();
+
+/* ================= Reactions ================= */
+function react(zone) {
+  touch();
+  if (mode === "eat") return;
+  if (mode === "sleep" || mode === "asleep") { wake(); return; }
+  clearAll(); mode = "react";
+  switch (zone) {
+    case "head": {
+      setExpr("dizzy"); pose("dizzy"); SFX.bonk(); mouthTarget = 0.35;
+      dizzyStars = [0, 1, 2].map(() => spawn("⭐", 0, 0, "", 99999));
+      later(2200, toIdle); break;
+    }
+    case "belly": {
+      setExpr("happy"); pose("jiggle", "yay"); SFX.giggle(); mouthTarget = 0.7;
+      hearts(2); later(1300, toIdle); break;
+    }
+    case "tail": {
+      setExpr("surprised"); pose("jump"); SFX.yowl(); mouthTarget = 1;
+      const p = pt(330, 300); spawn("❗", p.x, p.y, "float", 1200);
+      later(800, () => { mouthTarget = 0; }); later(1200, toIdle); break;
+    }
+    case "foot": {
+      setExpr("happy"); pose("hop"); SFX.boing(); later(650, toIdle); break;
+    }
+    case "nose": {
+      setExpr("closed"); pose("sneeze"); mouthTarget = 0.3; SFX.sneeze();
+      later(600, () => { mouthTarget = 1; const p = pt(200, 280); for (let i = 0; i < 5; i++) spawn("💦", p.x + rnd(-40, 40), p.y, "float", 1000, { "--dx": rnd(-90, 90) + "px" }); });
+      later(950, () => { mouthTarget = 0; setExpr("normal"); });
+      later(1300, toIdle); break;
+    }
+    case "ear": {
+      pose(Math.random() < 0.5 ? "twitchL" : "twitchR"); SFX.meow(1.25, 0.55); mouthTarget = 0.6;
+      later(450, () => { mouthTarget = 0; }); later(800, toIdle); break;
+    }
+    default: {
+      setExpr("happy"); SFX.meow(1, 1); mouthTarget = 0.85; pose("look");
+      later(600, () => { mouthTarget = 0; }); later(1000, toIdle);
+    }
+  }
+}
+function startPet() {
+  if (mode === "eat" || mode === "sleep" || mode === "asleep") return false;
+  clearAll(); mode = "pet"; setExpr("happy"); startPurr();
+  const tick = () => { if (mode !== "pet") return; hearts(1); later(380, tick); };
+  tick(); return true;
+}
+function endPet() { if (mode !== "pet") return; stopPurr(); later(400, toIdle); }
+
+function goSleep(byButton) {
+  clearAll(); mode = byButton ? "sleep" : "asleep";
+  if (byButton) { document.body.classList.add("night"); $("tSleep").classList.add("on"); $("tSleep").textContent = "☀️"; }
+  setExpr("closed"); pose("sleeping");
+  SFX.yawn(); mouthTarget = 0.9; later(1100, () => { mouthTarget = 0; });
+  const zz = () => { const p = pt(270, 110); spawn("Z", p.x + rnd(-10, 10), p.y, "zz", 2700); };
+  later(1400, zz); zzTimer = setInterval(zz, 1300);
+  snoreTimer = setInterval(() => SFX.snore(), 4200);
+}
+function wake() {
+  touch();
+  clearAll(); mode = "react";
+  pose("stretch"); setExpr("closed"); SFX.yawn(); mouthTarget = 1;
+  later(1000, () => { mouthTarget = 0; setExpr("normal"); });
+  later(1300, () => { SFX.meow(1.1, 0.7); mouthTarget = 0.8; setExpr("happy"); });
+  later(1750, () => { mouthTarget = 0; });
+  later(2000, toIdle);
+}
+
+const FOOD = { tMilk: "🥛", tFish: "🐟", tCake: "🧁" };
+function feed(btn) {
+  touch();
+  if (mode === "eat") return;
+  if (mode === "sleep" || mode === "asleep") { wake(); return; }
+  clearAll(); mode = "eat";
+  const kind = btn.id, r = btn.getBoundingClientRect(), box = fx.getBoundingClientRect();
+  const from = { x: r.left + r.width / 2 - box.left, y: r.top + r.height / 2 - box.top };
+  const to = pt(200, 272);
+  const el = document.createElement("div"); el.className = "flyer"; el.textContent = FOOD[kind]; fx.appendChild(el);
+  SFX.pop(); setExpr("surprised"); mouthTarget = 1; pose("eating");
+  const anim = el.animate([
+    { transform: `translate(${from.x}px, ${from.y}px) translate(-50%,-50%) scale(1)` },
+    { transform: `translate(${(from.x + to.x) / 2}px, ${Math.min(from.y, to.y) - 120}px) translate(-50%,-50%) scale(1.15)`, offset: 0.5 },
+    { transform: `translate(${to.x}px, ${to.y}px) translate(-50%,-50%) scale(.35)` }
+  ], { duration: 750, easing: "ease-in-out", fill: "forwards" });
+  anim.onfinish = () => {
+    el.remove(); mouthTarget = 0; setExpr("happy");
+    const bites = 4;
+    for (let i = 0; i < bites; i++) {
+      later(i * 330, () => {
+        mouthTarget = 0.55;
+        if (kind === "tMilk") SFX.gulp(); else SFX.munch();
+        if (kind !== "tMilk") { const p = pt(200, 285); for (let k = 0; k < 3; k++) spawn("", p.x + rnd(-30, 30), p.y, "crumb", 800, { "--dx": rnd(-50, 50) + "px", background: kind === "tCake" ? "#F49AA0" : "#E08E45" }); }
+      });
+      later(i * 330 + 170, () => { mouthTarget = 0; });
+    }
+    later(bites * 330 + 150, () => { SFX.yum(); pose("yay"); hearts(kind === "tCake" ? 4 : 2); mouthTarget = 0.25; });
+    later(bites * 330 + 1100, toIdle);
+  };
+}
+
+function dance() {
+  touch();
+  if (music) { toIdle(); return; }
+  if (mode === "eat") return;
+  clearAll(); mode = "dance"; $("tMusic").classList.add("on");
+  setExpr("happy"); pose("dance"); mouthTarget = 0.3;
+  playMusic(() => { $("tMusic").classList.remove("on"); toIdle(); });
+  noteTimer = setInterval(() => { const p = pt(rnd(60, 340), rnd(80, 200)); spawn(["🎵", "🎶"][Math.random() * 2 | 0], p.x, p.y, "float", 1700, { "--dx": rnd(-40, 40) + "px" }); }, 500);
+}
+
+/* ================= Pointer input on the cat ================= */
+let press = null;
+cat.addEventListener("pointerdown", (e) => {
+  if (!started) return;
+  e.preventDefault();
+  const z = e.target.closest("[data-zone]");
+  press = { zone: z ? z.dataset.zone : "body", x: e.clientX, y: e.clientY, dist: 0, petting: false, id: e.pointerId };
+  try { cat.setPointerCapture(e.pointerId); } catch (_) {}
+});
+cat.addEventListener("pointermove", (e) => {
+  if (!press || e.pointerId !== press.id) return;
+  press.dist += Math.hypot(e.clientX - press.x, e.clientY - press.y);
+  press.x = e.clientX; press.y = e.clientY;
+  if (!press.petting && press.dist > 45 && press.zone !== "tail" && press.zone !== "foot") {
+    press.petting = startPet();
+  }
+  if (press.petting) touch();
+});
+const endPress = (e) => {
+  if (!press || e.pointerId !== press.id) return;
+  const p = press; press = null;
+  if (p.petting) endPet(); else if (p.dist < 45) react(p.zone);
+};
+cat.addEventListener("pointerup", endPress);
+cat.addEventListener("pointercancel", (e) => { if (press && press.petting) endPet(); press = null; });
+
+/* eyes follow fingers */
+let look = { x: 0, y: 0 }, lookUntil = 0;
+document.addEventListener("pointerdown", (e) => aimEyes(e.clientX, e.clientY), true);
+document.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" || e.buttons) aimEyes(e.clientX, e.clientY); }, true);
+function aimEyes(x, y) {
+  const m = cat.getScreenCTM(); if (!m) return;
+  const p = cat.createSVGPoint(); p.x = 200; p.y = 200; const c = p.matrixTransform(m);
+  const dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 300);
+  look = { x: dx / d * 8 * k, y: dy / d * 8 * k }; lookUntil = performance.now() + 2200;
+}
+
+/* toy buttons */
+for (const id of ["tMilk", "tFish", "tCake"]) $(id).addEventListener("click", (e) => { if (started) feed(e.currentTarget); });
+$("tMusic").addEventListener("click", () => { if (started) dance(); });
+$("tSleep").addEventListener("click", () => {
+  if (!started) return; touch();
+  if (mode === "sleep") wake(); else if (mode !== "eat") goSleep(true);
+});
+// stop iOS pinch / double-tap zoom and long-press menus
+document.addEventListener("gesturestart", (e) => e.preventDefault());
+document.addEventListener("dblclick", (e) => e.preventDefault());
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+/* ================= Microphone: listen, then repeat in a squeaky voice ================= */
+let micStream = null, proc = null, micSrc = null, deafUntil = 0;
+const ear = $("ear");
+async function startMic() {
+  if (!ctx || micStream) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { ear.dataset.state = "off"; return; }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } });
+  } catch (err) { ear.dataset.state = "off"; micStream = null; return; }
+  if (ctx.state !== "running") { try { await ctx.resume(); } catch (e) {} }
+  micSrc = ctx.createMediaStreamSource(micStream);
+  proc = ctx.createScriptProcessor(2048, 1, 1);
+  const sink = ctx.createGain(); sink.gain.value = 0;
+  micSrc.connect(proc); proc.connect(sink); sink.connect(ctx.destination);
+  proc.onaudioprocess = onMicChunk;
+  micStream.getAudioTracks().forEach((t) => t.addEventListener("ended", () => { stopMic(); }));
+  ear.dataset.state = "on";
+}
+function stopMic() {
+  try { proc && (proc.onaudioprocess = null, proc.disconnect()); micSrc && micSrc.disconnect(); } catch (e) {}
+  micStream && micStream.getTracks().forEach((t) => t.stop());
+  micStream = proc = micSrc = null; ear.dataset.state = "off"; rec = null;
+}
+let floor = 0.01, rec = null;
+const preroll = [];
+function onMicChunk(ev) {
+  const d = ev.inputBuffer.getChannelData(0);
+  let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i];
+  const rms = Math.sqrt(s / d.length);
+  const chunk = new Float32Array(d);
+  const now = performance.now();
+  const canHear = now > deafUntil && (mode === "idle" || mode === "listen" || mode === "asleep");
+  if (!canHear) { preroll.length = 0; if (rec) { rec = null; ear.dataset.state = "on"; } return; }
+  const startT = Math.max(0.03, floor * 3.5), keepT = Math.max(0.018, floor * 2.2);
+  if (!rec) {
+    floor = floor * 0.96 + Math.min(rms, 0.05) * 0.04;
+    preroll.push(chunk); if (preroll.length > 8) preroll.shift();
+    if (rms > startT) {
+      rec = { chunks: preroll.splice(0), loud: 1, quiet: 0 };
+      rec.chunks.push(chunk);
+      onVoiceStart();
+    }
+  } else {
+    rec.chunks.push(chunk);
+    if (rms > keepT) { rec.loud++; rec.quiet = 0; } else rec.quiet++;
+    const secs = rec.chunks.length * d.length / ctx.sampleRate;
+    if (rec.quiet > 17 || secs > 7) {
+      const r = rec; rec = null;
+      onVoiceEnd(r);
+    }
+  }
+}
+function onVoiceStart() {
+  touch();
+  if (mode === "asleep") { rec = null; wake(); return; }
+  if (mode !== "idle") { rec = null; return; }
+  clearAll(); mode = "listen"; pose("listen"); ear.dataset.state = "hearing";
+}
+function onVoiceEnd(r) {
+  ear.dataset.state = micStream ? "on" : "off";
+  if (mode !== "listen") return;
+  if (r.loud < 4) { toIdle(); return; }
+  // stitch, trim trailing quiet, normalise
+  let len = r.chunks.reduce((a, c) => a + c.length, 0);
+  const all = new Float32Array(len); let o = 0; for (const c of r.chunks) { all.set(c, o); o += c.length; }
+  const trim = Math.max(0, len - Math.round(ctx.sampleRate * 0.55)); len = Math.max(trim, Math.round(ctx.sampleRate * 0.3));
+  let peak = 0; for (let i = 0; i < len; i++) peak = Math.max(peak, Math.abs(all[i]));
+  const gain = Math.min(6, 0.95 / (peak || 1));
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate); const ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = all[i] * gain;
+  // fade edges to avoid clicks
+  const fade = Math.min(400, len >> 2); for (let i = 0; i < fade; i++) { ch[i] *= i / fade; ch[len - 1 - i] *= i / fade; }
+  sayBack(buf);
+}
+function sayBack(buf) {
+  clearAll(); mode = "talk"; pose("talking"); setExpr("normal");
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  src.playbackRate.value = 1.55;               // higher and faster: the classic squeaky cat voice
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 160;
+  const g = ctx.createGain(); g.gain.value = 1.3;
+  const an = ctx.createAnalyser(); an.fftSize = 512;
+  src.connect(hp); hp.connect(g); g.connect(an); an.connect(master);
+  talkAnalyser = an; talkSource = src;
+  src.onended = () => { if (talkSource === src) { talkSource = talkAnalyser = null; deafUntil = performance.now() + 500; if (mode === "talk") toIdle(); } };
+  deafUntil = Infinity;
+  src.start();
+}
+function stopTalk() {
+  if (!talkSource) return;
+  const s = talkSource; talkSource = talkAnalyser = null;
+  try { s.onended = null; s.stop(); } catch (e) {}
+  deafUntil = performance.now() + 500;
+}
+ear.addEventListener("click", () => { if (!started) return; initAudio(); if (!micStream) startMic(); });
+
+/* ================= Animation loop ================= */
+const tdBuf = new Uint8Array(512);
+function frame(now) {
+  // mouth
+  if (talkAnalyser) {
+    talkAnalyser.getByteTimeDomainData(tdBuf);
+    let s = 0; for (let i = 0; i < tdBuf.length; i++) { const v = (tdBuf[i] - 128) / 128; s += v * v; }
+    mouthTarget = Math.min(1, Math.sqrt(s / tdBuf.length) * 5);
+  }
+  mouth += (mouthTarget - mouth) * 0.4;
+  const open = mouth > 0.08;
+  mouthOpenEl.style.display = open ? "" : "none";
+  mouthClosedEl.style.display = open ? "none" : "";
+  if (open) mouthOpenEl.setAttribute("transform", `translate(200 256) scale(${0.8 + mouth * 0.2} ${0.3 + mouth * 0.7}) translate(-200 -256)`);
+  // eyes
+  const tgt = now < lookUntil ? look : { x: 0, y: 0 };
+  pupils.forEach((p) => {
+    const c = p._c || (p._c = { x: 0, y: 0 });
+    c.x += (tgt.x - c.x) * 0.2; c.y += (tgt.y - c.y) * 0.2;
+    p.setAttribute("transform", `translate(${c.x.toFixed(2)} ${c.y.toFixed(2)})`);
+  });
+  // dizzy stars orbit the head
+  if (dizzyStars) {
+    const c = pt(200, 92), w = pt(300, 92).x - c.x;
+    dizzyStars.forEach((s, i) => {
+      const a = now / 260 + i * (Math.PI * 2 / 3);
+      s.style.transform = `translate(${c.x + Math.cos(a) * w - 20}px, ${c.y + Math.sin(a) * w * 0.28 - 20}px) scale(${0.8 + Math.sin(a) * 0.2})`;
+    });
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* blinking and little idle habits */
+(function blinkLoop() {
+  setTimeout(() => {
+    if (cat.dataset.expr === "normal" || cat.dataset.expr === "surprised") {
+      cat.classList.add("blink"); setTimeout(() => cat.classList.remove("blink"), 130);
+      if (Math.random() < 0.2) setTimeout(() => { cat.classList.add("blink"); setTimeout(() => cat.classList.remove("blink"), 120); }, 260);
+    }
+    blinkLoop();
+  }, rnd(1800, 4800));
+})();
+setInterval(() => {
+  if (!started || mode !== "idle") return;
+  const idleFor = performance.now() - lastInput;
+  if (idleFor > 120000) { goSleep(false); return; }
+  if (idleFor < 6000) return;
+  const r = Math.random();
+  if (r < 0.3) { look = { x: rnd(-8, 8), y: rnd(-4, 4) }; lookUntil = performance.now() + 1500; }
+  else if (r < 0.5) { pose(Math.random() < 0.5 ? "twitchL" : "twitchR"); later(800, () => cat.classList.remove("twitchL", "twitchR")); }
+  else if (r < 0.6) { mode = "react"; setExpr("closed"); SFX.yawn(); mouthTarget = 1; later(1100, toIdle); }
+  else if (r < 0.7) { mode = "react"; setExpr("happy"); SFX.meow(1.15, 0.7); mouthTarget = 0.7; later(500, () => { mouthTarget = 0; }); later(900, toIdle); }
+}, 3500);
+
+/* ================= Start / lifecycle ================= */
+let started = false;
+// sleepy "Z"s on the start screen
+zzTimer = setInterval(() => { const p = pt(270, 110); spawn("Z", p.x, p.y, "zz", 2700); }, 1300);
+$("startBtn").addEventListener("click", () => {
+  initAudio();
+  started = true; $("start").hidden = true;
+  clearInterval(zzTimer); zzTimer = null;
+  startMic();
+  wake();
+  try { navigator.wakeLock && navigator.wakeLock.request("screen").catch(() => {}); } catch (e) {}
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { if (music) toIdle(); return; }
+  if (!started || !ctx) return;
+  ctx.resume && ctx.resume();
+  if (micStream && micStream.getAudioTracks().some((t) => t.readyState === "ended")) stopMic();
+  if (!micStream) startMic();
+  try { navigator.wakeLock && navigator.wakeLock.request("screen").catch(() => {}); } catch (e) {}
+});
+})();
+</script>
