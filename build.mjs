@@ -33,7 +33,7 @@ if ("serviceWorker" in navigator && location.protocol === "https:") navigator.se
 out("index.html", head + src + "\n" + sw);
 
 out("manifest.webmanifest", JSON.stringify({
-  name: "Mochi the Cat", short_name: "Mochi", start_url: "./", scope: "./",
+  name: "Mochi and Friends", short_name: "Mochi", start_url: "./", scope: "./",
   display: "fullscreen", orientation: "any", background_color: "#BFE3DF", theme_color: "#BFE3DF",
   icons: [192, 512].map((s) => ({ src: `icon-${s}.png`, sizes: `${s}x${s}`, type: "image/png", purpose: "any" }))
 }, null, 2));
@@ -49,7 +49,8 @@ self.addEventListener("fetch", (e) => {
 `);
 
 // Icon: Mochi's face on the wall colour, rendered from the game's own SVG.
-const svg = src.match(/<svg id="cat"[\s\S]*?<\/svg>/)[0]
+const catArt = src.match(/cat:\s+\{ name: "Mochi", art: `([\s\S]*?)`/)[1];
+const svg = src.match(/<svg id="cat"[\s\S]*?<\/svg>/)[0].replace('<g id="all"></g>', '<g id="all">' + catArt + '</g>')
   .replace('id="cat"', 'id="cat" width="100%" height="100%"')
   .replace('viewBox="0 0 400 520"', 'viewBox="40 30 320 320"')
   .replace('data-expr="closed"', 'data-expr="normal"').replace('class="sleeping"', "");
