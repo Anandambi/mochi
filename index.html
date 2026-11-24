@@ -258,6 +258,29 @@ body.night .cloud { opacity: .25; }
 #cat.poof #all { animation: poof .45s cubic-bezier(.3,1.5,.5,1) 1; }
 @keyframes poof { 0% { transform: scale(.2); opacity: 0; } 100% { transform: none; opacity: 1; } }
 
+/* ---------- Parent help panel (behind the ear button) ---------- */
+#diag {
+  position: absolute; z-index: 6;
+  top: calc(env(safe-area-inset-top, 0px) + 78px);
+  right: max(16px, env(safe-area-inset-right, 0px));
+  width: min(340px, calc(100vw - 32px));
+  background: #FFFFFF; color: #3B2A20; border-radius: 18px;
+  padding: 16px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  font: 15px/1.45 system-ui, -apple-system, sans-serif;
+  -webkit-user-select: text; user-select: text;
+}
+#diag h2 { margin: 0 0 8px; font-size: 17px; }
+#diag dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0 0 10px; }
+#diag dt { color: #8A7466; }
+#diag dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+#diag .meter { height: 14px; border-radius: 7px; background: #EFE6DE; overflow: hidden; margin: 4px 0 6px; position: relative; }
+#diag .meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: #3FA79C; transition: width .08s; }
+#diag .meter b { position: absolute; top: 0; bottom: 0; width: 2px; background: #E0566A; }
+#diag p { margin: 6px 0 10px; color: #6A5548; }
+#diag .row { display: flex; gap: 8px; }
+#diag button { flex: 1; font: 600 15px system-ui, sans-serif; padding: 10px; border-radius: 12px; border: 0; background: #3E7BD6; color: #FFFFFF; }
+#diag button.ghost { background: #EFE6DE; color: #3B2A20; }
+
 /* ---------- Start screen ---------- */
 #start {
   position: absolute; inset: 0;
@@ -323,6 +346,19 @@ body.night .cloud { opacity: .25; }
 
   <div id="friends" role="radiogroup" aria-label="Choose a friend"></div>
   <button id="ear" data-state="off" aria-label="Microphone">👂</button>
+  <div id="diag" hidden>
+    <h2>Microphone check (for grown-ups)</h2>
+    <dl>
+      <dt>Microphone</dt><dd id="dMic">not started</dd>
+      <dt>Sound engine</dt><dd id="dCtx">-</dd>
+      <dt>Times heard</dt><dd id="dHeard">0</dd>
+      <dt>Version</dt><dd>3</dd>
+    </dl>
+    <div>Talk now. The green bar should jump past the red line:</div>
+    <div class="meter"><i id="dLevel"></i><b id="dThresh"></b></div>
+    <p id="dHelp"></p>
+    <div class="row"><button id="dRetry">Restart microphone</button><button id="dClose" class="ghost">Close</button></div>
+  </div>
 
   <div id="start">
     <button id="startBtn" aria-label="Start">
@@ -600,8 +636,9 @@ const voice = (p = 1, len = 1) => (who === "dino" ? SFX.roar(p, len) : who === "
 
 /* ================= Audio engine ================= */
 let ctx = null, master = null;
-function initAudio() {
-  if (ctx) { if (ctx.state !== "running") ctx.resume(); return; }
+function initAudio(fresh) {
+  if (ctx && !fresh) { if (ctx.state !== "running") ctx.resume().catch(() => {}); return; }
+  if (ctx && fresh) { try { stopPurr(); ctx.close(); } catch (e) {} ctx = null; noiseBuf = null; purrNodes = null; }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   try { if (navigator.audioSession) navigator.audioSession.type = "play-and-record"; } catch (e) {}
@@ -613,7 +650,8 @@ function initAudio() {
   // iOS unlock: play one silent sample inside the tap.
   const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource();
   s.buffer = b; s.connect(ctx.destination); s.start(0);
-  ctx.resume();
+  ctx.resume().catch(() => {});
+  ctx.onstatechange = updateDiag;
 }
 let noiseBuf = null;
 function noise() {
@@ -984,37 +1022,71 @@ document.addEventListener("contextmenu", (e) => e.preventDefault());
 /* ================= Microphone: listen, then repeat in a squeaky voice ================= */
 let micStream = null, proc = null, micSrc = null, deafUntil = 0;
 const ear = $("ear");
-async function startMic() {
-  if (!ctx || micStream) return;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { ear.dataset.state = "off"; return; }
+let micError = "", micStarting = false, silentChunks = 0, rebuilt = 0, heardCount = 0, lastRms = 0;
+function requestMic() {
+  // Must be called straight from a tap: iPad Safari only shows the permission prompt then.
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    micError = window.isSecureContext ? "This browser has no microphone support" : "Page is not https";
+    return Promise.reject(new Error(micError));
+  }
+  return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } })
+    .catch((err) => {
+      if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) throw err;
+      return navigator.mediaDevices.getUserMedia({ audio: true });   // simplest possible request
+    });
+}
+async function startMic(pending) {
+  if (micStream || micStarting) return;
+  micStarting = true; micError = ""; updateDiag();
   try {
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } });
-  } catch (err) { ear.dataset.state = "off"; micStream = null; return; }
-  if (ctx.state !== "running") { try { await ctx.resume(); } catch (e) {} }
+    micStream = await (pending || requestMic());
+  } catch (err) {
+    micError = (err && err.name ? err.name + ": " : "") + (err && err.message || "blocked");
+    ear.dataset.state = "off"; micStream = null; micStarting = false; updateDiag(); return;
+  }
+  micStarting = false;
+  micStream.getAudioTracks().forEach((t) => t.addEventListener("ended", () => { stopMic(); updateDiag(); }));
+  // iPad: a sound engine made before the microphone was granted can receive only silence.
+  // Make a fresh one now (Safari lets it play because the page is already using the mic).
+  initAudio(true);
+  connectMic();
+}
+function connectMic() {
+  if (!micStream) return;
+  initAudio();
+  try { proc && (proc.onaudioprocess = null, proc.disconnect()); micSrc && micSrc.disconnect(); } catch (e) {}
+  if (ctx.state !== "running") ctx.resume().catch(() => {});
   micSrc = ctx.createMediaStreamSource(micStream);
   proc = ctx.createScriptProcessor(2048, 1, 1);
-  const sink = ctx.createGain(); sink.gain.value = 0;
+  const sink = ctx.createGain(); sink.gain.value = 0.00001;
   micSrc.connect(proc); proc.connect(sink); sink.connect(ctx.destination);
   proc.onaudioprocess = onMicChunk;
-  micStream.getAudioTracks().forEach((t) => t.addEventListener("ended", () => { stopMic(); }));
-  ear.dataset.state = "on";
+  silentChunks = 0;
+  ear.dataset.state = "on"; updateDiag();
 }
 function stopMic() {
   try { proc && (proc.onaudioprocess = null, proc.disconnect()); micSrc && micSrc.disconnect(); } catch (e) {}
   micStream && micStream.getTracks().forEach((t) => t.stop());
-  micStream = proc = micSrc = null; ear.dataset.state = "off"; rec = null;
+  micStream = proc = micSrc = null; ear.dataset.state = "off"; rec = null; micStarting = false;
 }
 let floor = 0.01, rec = null;
+const startThreshold = () => Math.max(0.02, floor * 3.2);
 const preroll = [];
 function onMicChunk(ev) {
   const d = ev.inputBuffer.getChannelData(0);
   let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i];
   const rms = Math.sqrt(s / d.length);
+  lastRms = rms;
+  // iPad bug: the mic sometimes delivers pure digital silence into an audio engine made before it.
+  // If that happens for ~2 s, rebuild the engine once and reconnect.
+  if (rms === 0) {
+    if (++silentChunks === 45 && rebuilt < 2) { rebuilt++; setTimeout(() => { initAudio(true); connectMic(); }, 0); }
+  } else silentChunks = 0;
   const chunk = new Float32Array(d);
   const now = performance.now();
   const canHear = now > deafUntil && (mode === "idle" || mode === "listen" || mode === "asleep");
   if (!canHear) { preroll.length = 0; if (rec) { rec = null; ear.dataset.state = "on"; } return; }
-  const startT = Math.max(0.03, floor * 3.5), keepT = Math.max(0.018, floor * 2.2);
+  const startT = startThreshold(), keepT = Math.max(0.012, floor * 2.2);
   if (!rec) {
     floor = floor * 0.96 + Math.min(rms, 0.05) * 0.04;
     preroll.push(chunk); if (preroll.length > 8) preroll.shift();
@@ -1034,7 +1106,7 @@ function onMicChunk(ev) {
   }
 }
 function onVoiceStart() {
-  touch();
+  touch(); heardCount++;
   if (mode === "asleep") { rec = null; wake(); return; }
   if (mode !== "idle") { rec = null; return; }
   clearAll(); mode = "listen"; pose("listen"); ear.dataset.state = "hearing";
@@ -1074,7 +1146,43 @@ function stopTalk() {
   try { s.onended = null; s.stop(); } catch (e) {}
   deafUntil = performance.now() + 500;
 }
-ear.addEventListener("click", () => { if (!started) return; initAudio(); if (!micStream) startMic(); });
+const diag = $("diag");
+let diagTimer = null;
+function updateDiag() {
+  if (diag.hidden) return;
+  $("dMic").textContent = micStream ? "on" + (micStream.getAudioTracks()[0] ? " (" + (micStream.getAudioTracks()[0].label || "built-in") + ")" : "")
+    : micStarting ? "waiting for permission..." : (micError || "off");
+  $("dCtx").textContent = ctx ? ctx.state + ", " + ctx.sampleRate + " Hz" + (rebuilt ? ", restarted " + rebuilt + "x" : "") : "not started";
+  $("dHeard").textContent = heardCount;
+  let help = "";
+  if (/NotAllowed|denied|Permission/i.test(micError)) help = "The iPad said no to the microphone. Open Settings > Apps > Safari > Microphone (older iPads: Settings > Safari > Microphone) and choose Ask or Allow. Also check Settings > Screen Time > Content & Privacy > Microphone. Then close Mochi fully and open it again.";
+  else if (micError) help = "Tap Restart microphone. If it still fails, open the game in the Safari app instead of the home-screen icon and try again.";
+  else if (micStream && silentChunks > 40) help = "The microphone is on but sending silence. Close Mochi fully (swipe it away) and open it again.";
+  else if (micStream) help = "If the bar moves but Mochi does not answer, talk a bit louder and then stop and wait.";
+  $("dHelp").textContent = help;
+}
+function diagLoop() {
+  if (diag.hidden) return;
+  const lv = Math.min(1, Math.sqrt(lastRms / 0.25));
+  $("dLevel").style.width = (micStream ? lv * 100 : 0) + "%";
+  $("dThresh").style.left = Math.min(98, Math.sqrt(startThreshold() / 0.25) * 100) + "%";
+  if (!micStream) lastRms = 0;
+  updateDiag();
+  setTimeout(diagLoop, 120);
+}
+ear.addEventListener("click", () => {
+  initAudio();
+  if (!micStream && !micStarting) startMic(requestMic());
+  diag.hidden = !diag.hidden;
+  diagLoop();
+});
+$("dRetry").addEventListener("click", () => {
+  stopMic(); rebuilt = 0; initAudio(true);
+  startMic(requestMic());
+});
+$("dClose").addEventListener("click", () => { diag.hidden = true; });
+// Any tap wakes a paused or interrupted sound engine (iPad does this after calls, Siri, or switching apps).
+document.addEventListener("pointerdown", () => { if (ctx && ctx.state !== "running") ctx.resume().catch(() => {}); }, true);
 
 /* ================= Animation loop ================= */
 const tdBuf = new Uint8Array(512);
@@ -1167,10 +1275,12 @@ let started = false;
 // sleepy "Z"s on the start screen
 zzTimer = setInterval(() => { const p = pt(270, 110); spawn("Z", p.x, p.y, "zz", 2700); }, 1300);
 $("startBtn").addEventListener("click", () => {
+  const pending = requestMic();          // ask for the microphone first, while the tap is still "fresh"
+  pending.catch(() => {});
   initAudio();
   started = true; $("start").hidden = true;
   clearInterval(zzTimer); zzTimer = null;
-  startMic();
+  startMic(pending);
   wake();
   try { navigator.wakeLock && navigator.wakeLock.request("screen").catch(() => {}); } catch (e) {}
 });
@@ -1179,7 +1289,7 @@ document.addEventListener("visibilitychange", () => {
   if (!started || !ctx) return;
   ctx.resume && ctx.resume();
   if (micStream && micStream.getAudioTracks().some((t) => t.readyState === "ended")) stopMic();
-  if (!micStream) startMic();
+  if (!micStream && !/NotAllowed/.test(micError)) startMic();
   try { navigator.wakeLock && navigator.wakeLock.request("screen").catch(() => {}); } catch (e) {}
 });
 })();
