@@ -165,6 +165,10 @@ body.night .cloud { opacity: .25; }
 #cat.twitchR #earR { animation: twitch .35s ease-in-out 2; }
 @keyframes twitch { 50% { transform: rotate(-16deg) scale(.9); } }
 #cat.look #head { transform: rotate(-6deg); }
+#cat.toot #all { animation: toot .5s cubic-bezier(.3,1.6,.5,1) 1; }
+@keyframes toot { 0% { transform: none; } 30% { transform: translateY(-26px) scale(.97, 1.04); } 60% { transform: scale(1.05, .95); } 100% { transform: none; } }
+#cat.toot #head { transform: rotate(12deg) translateX(6px); }
+#cat.toot #tail { animation: none; transform: rotate(-24deg); }
 
 /* ---------- Effects ---------- */
 #fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -184,6 +188,12 @@ body.night .cloud { opacity: .25; }
   0% { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
   20% { opacity: 1; }
   100% { opacity: 0; transform: translate(60px, -180px) scale(1.4) rotate(12deg); }
+}
+.puff { animation: puff 1.5s ease-out forwards; }
+@keyframes puff {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.9); }
 }
 .crumb { width: 12px; height: 12px; border-radius: 50%; animation: crumb .8s ease-in forwards; }
 @keyframes crumb { to { opacity: 0; transform: translate(var(--dx), 110px) scale(.6); } }
@@ -329,6 +339,7 @@ body.night .cloud { opacity: .25; }
     <button class="toy" id="tMilk" style="--ring:#7EC8F2" aria-label="Milk">🥛</button>
     <button class="toy" id="tFish" style="--ring:#F4AE63" aria-label="Fish">🐟</button>
     <button class="toy" id="tCake" style="--ring:#F49AA0" aria-label="Cake">🧁</button>
+    <button class="toy" id="tToot" style="--ring:#A8D86E" aria-label="Toot">💨</button>
     <button class="toy" id="tMusic" style="--ring:#9C8CF0" aria-label="Music">🎵</button>
     <button class="toy" id="tSleep" style="--ring:#3E4A8C" aria-label="Bedtime">🌙</button>
   </div>
@@ -341,7 +352,7 @@ body.night .cloud { opacity: .25; }
       <dt>Microphone</dt><dd id="dMic">not started</dd>
       <dt>Sound engine</dt><dd id="dCtx">-</dd>
       <dt>Times heard</dt><dd id="dHeard">0</dd>
-      <dt>Version</dt><dd>4</dd>
+      <dt>Version</dt><dd>5</dd>
     </dl>
     <div>Talk now. The green bar should jump past the red line:</div>
     <div class="meter"><i id="dLevel"></i><b id="dThresh"></b></div>
@@ -730,6 +741,29 @@ const SFX = {
       this.burst(0.08, 600, 2, 0.25, i * 0.22);
     }
   },
+  fart() {   // three flavours, picked at random: a short toot, a long rumble, a squeaky one
+    if (!ctx) return 0.5;
+    const kinds = [
+      { f0: 150, f1: 105, d: 0.45, flut: 28, depth: 30, lp: 900 },
+      { f0: 85,  f1: 58,  d: 1.25, flut: 21, depth: 22, lp: 650 },
+      { f0: 290, f1: 520, d: 0.5,  flut: 42, depth: 60, lp: 1800 }
+    ];
+    const k = kinds[Math.random() * kinds.length | 0], t = ctx.currentTime, d = k.d * (0.85 + Math.random() * 0.3);
+    const o = ctx.createOscillator(); o.type = "sawtooth";
+    o.frequency.setValueAtTime(k.f0, t); o.frequency.exponentialRampToValueAtTime(k.f1, t + d);
+    const fl = ctx.createOscillator(); fl.type = "square"; fl.frequency.setValueAtTime(k.flut, t); fl.frequency.linearRampToValueAtTime(k.flut * 0.7, t + d);
+    const fg = ctx.createGain(); fg.gain.value = k.depth; fl.connect(fg); fg.connect(o.frequency);
+    const am = ctx.createGain(); am.gain.value = 0.7;
+    const ag = ctx.createGain(); ag.gain.value = 0.3; fl.connect(ag); ag.connect(am.gain);
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = k.lp; lp.Q.value = 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.2, t + 0.03);
+    g.gain.setValueAtTime(1.2, t + d * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(am); am.connect(lp); lp.connect(g); g.connect(master);
+    o.start(t); fl.start(t); o.stop(t + d + 0.05); fl.stop(t + d + 0.05);
+    this.burst(Math.min(0.25, d * 0.4), 380, 1.2, 0.35);           // the "pff" at the start
+    return d;
+  },
   plink(f, at = 0) { this.chirp(f, f, 0.18, "sine", 0.18, at); }
 };
 let purrNodes = null;
@@ -805,7 +839,7 @@ let timers = [];
 let mouth = 0, mouthTarget = 0, talkAnalyser = null, talkSource = null;
 let lastInput = performance.now();
 let dizzyStars = null, zzTimer = null, snoreTimer = null, noteTimer = null;
-const POSES = ["listen", "talking", "dizzy", "jiggle", "hop", "jump", "sneeze", "sleeping", "stretch", "dance", "eating", "yay", "twitchL", "twitchR", "look"];
+const POSES = ["listen", "talking", "dizzy", "jiggle", "hop", "jump", "sneeze", "sleeping", "stretch", "dance", "eating", "yay", "twitchL", "twitchR", "look", "toot"];
 
 const later = (ms, fn) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
 function setExpr(e) { cat.dataset.expr = e; }
@@ -950,6 +984,21 @@ function feed(btn) {
   };
 }
 
+function toot() {
+  touch();
+  if (mode === "eat") return;
+  if (mode === "sleep" || mode === "asleep") { wake(); return; }
+  clearAll(); mode = "react";
+  pose("toot"); setExpr("surprised");
+  const d = SFX.fart() * 1000;
+  for (let i = 0; i < 4; i++) setTimeout(() => {
+    const p = pt(rnd(300, 318), rnd(478, 500));
+    spawn("💨", p.x, p.y, "puff", 1600, { "--dx": rnd(90, 190) + "px", "--dy": rnd(-70, 0) + "px" });
+  }, i * Math.min(160, d / 4));
+  later(Math.max(450, d) + 100, () => { setExpr("happy"); pose("yay"); SFX.giggle(); mouthTarget = 0.75; });
+  later(Math.max(450, d) + 800, () => { mouthTarget = 0; });
+  later(Math.max(450, d) + 1100, toIdle);
+}
 function dance() {
   touch();
   if (music) { toIdle(); return; }
@@ -1000,6 +1049,7 @@ function aimEyes(x, y) {
 /* toy buttons */
 for (const id of ["tMilk", "tFish", "tCake"]) $(id).addEventListener("click", (e) => { if (started) feed(e.currentTarget); });
 $("tMusic").addEventListener("click", () => { if (started) dance(); });
+$("tToot").addEventListener("click", () => { if (started) toot(); });
 $("tSleep").addEventListener("click", () => {
   if (!started) return; touch();
   if (mode === "sleep") wake(); else if (mode !== "eat") goSleep(true);
